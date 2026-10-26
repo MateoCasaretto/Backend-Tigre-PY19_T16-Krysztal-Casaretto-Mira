@@ -3,10 +3,16 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export const registrarUsuarioService = async (usuarioData) => {
-    const { username, email, password } = usuarioData;
+    const { username, email, password, repeatPassword  } = usuarioData;
+
+    if (password !== repeatPassword) {
+        const error = new Error("Las contraseñas no coinciden");
+        error.status = 400;
+        throw error;
+    }
 
     const usuarioExistente = await Usuario.findOne({
-        $or: [{ email: email.toLowerCase() }, { username }]
+        $or: [{ email: email.trim().toLowerCase() }, { username }]
     });
 
     if (usuarioExistente) {
@@ -29,9 +35,10 @@ export const registrarUsuarioService = async (usuarioData) => {
     });
 
     await nuevoUsuario.save();
-    const token = jwt.sign({ id: nuevoUsuario._id, rol: nuevoUsuario.rol }, process.env.SECRET_KEY, { expiresIn: "1d" });
+    const token = jwt.sign({ id: nuevoUsuario._id, rol: nuevoUsuario.role }, process.env.SECRET_KEY, { expiresIn: "1d" });
     return { token };
 };
+
 
 export const loginUsuarioService = async (email, password) => {
     const usuario = await Usuario.findOne({ email: email.toLowerCase() });
@@ -50,6 +57,6 @@ export const loginUsuarioService = async (email, password) => {
         throw error;
     }
 
-    const token = jwt.sign({ id: usuario._id, rol: usuario.rol }, process.env.SECRET_KEY, { expiresIn: "1d" });
+    const token = jwt.sign({ id: usuario._id, rol: usuario.role }, process.env.SECRET_KEY, { expiresIn: "1d" });
     return { token };
 };

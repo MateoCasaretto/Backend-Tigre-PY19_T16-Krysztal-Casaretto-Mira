@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const usuarioSchema = new mongoose.Schema({
-    nombreUsuario: {
+    username: {
         type: String,
         required: true,
         unique: true,
@@ -14,11 +14,11 @@ const usuarioSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    contrasena: {
+    password: {
         type: String,
         required: true
     },
-    rol: {
+    role: {
         type: String,
         enum: ["Administrador", "Operario"],
         default: "Operario"
@@ -27,11 +27,11 @@ const usuarioSchema = new mongoose.Schema({
 
 
 usuarioSchema.pre("save", async function () {
-    if (!this.isModified("contrasena")) return;
+    if (!this.isModified("password")) return;
 
-    const passwordHash = await bcrypt.hash(this.contrasena, Number(process.env.SALT_ROUNDS || 12)
+    const passwordHash = await bcrypt.hash(this.password, Number(process.env.SALT_ROUNDS || 12)
     );
-    this.contrasena = passwordHash;
+    this.password = passwordHash;
 });
 
 export default mongoose.model("Usuario", usuarioSchema);

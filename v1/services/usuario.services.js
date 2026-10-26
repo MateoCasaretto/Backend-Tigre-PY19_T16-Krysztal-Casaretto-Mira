@@ -22,7 +22,7 @@ export const obtenerUsuarioPorIdService = async (id) => {
 export const cambiarRolUsuario = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { rol } = req.body;
+        const { role } = req.body;
 
         const usuarioActualizado = await cambiarRolUsuarioService(id, rol);
 

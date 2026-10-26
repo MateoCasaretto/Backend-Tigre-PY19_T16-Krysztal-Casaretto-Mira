@@ -8,24 +8,24 @@ export const registrarUsuarioSchema = Joi.object({
         "string.max": "El nombre del usuario no puede tener más de {#limit} caracteres",
         "any.required": "El nombre del usuario es obligatorio"
     }),
-    email: Joi.string().email().required().messages({
+    email: Joi.string().trim().tolowercase().email().required().messages({
         "string.base": "El email del usuario debe ser una cadena de texto",
         "string.empty": "El email no puede estar vacío",
         "any.required": "El email del usuario es obligatorio", 
         "email.base" : "El formato debe ser el de correo electronico"
     }),
-    password: Joi.string().required().min(8).pattern(/^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S+$/).messages({
+    password: Joi.string().required().min(8).pattern(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S+$/).messages({
         "any.required": "El campo contraseña es obligatorio",
         "string.empty": "La contraseña no puede estar vacía",
         "string.min": "La contraseña debe tener al menos {#limit} caracteres",
-        "string.pattern.base": "La contraseña debe contener al menos una letra, un número, y un caracteres especial",
+        "string.pattern.base": "La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial, sin espacios",
     }),
     confirmPassword: Joi.string().valid(Joi.ref("password")).required().messages({
         "any.only": "Las contraseñas no coinciden",
         "any.required": "La confirmación de contraseña es obligatoria"
     }),
-    rol: Joi.string().valid("operario", "admin").default("operario").messages({
-        "any.only": "El rol debe ser operario o admin"
+    role: Joi.string().valid("Operario", "Administrador").default("Operario").messages({
+        "any.only": "El rol solo puede ser Administrador u Operario"
   })
    
 });

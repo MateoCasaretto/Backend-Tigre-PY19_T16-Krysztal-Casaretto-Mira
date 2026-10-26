@@ -1,18 +1,19 @@
 {
   "name": "back-tigre",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend en Node.js con Express para Tigre Uruguay",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch server.js",
-    "start": "node server.js"
+    "dev": "node --watch --env-file=.env server.js",
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Grupo PY19_T16",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "mongoose": "^9.11.4"
   }
 }

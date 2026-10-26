@@ -1,0 +1,607 @@
+{
+  "info": {
+    "name": "Tigre - API Proyecto Integrador",
+    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_.\n\n- **01 - Registro**: comportamiento actual que tiene que seguir funcionando.\n- **02 - Riesgos del registro**: lo que el registro debería cumplir y hoy no. Estos tests FALLAN a propósito hasta que se corrija el backend.\n\nCuando el registro requiera sesión, cargar `token_admin` (token de un usuario Administrador de tigre_dev) en un environment para que la carpeta 01 siga pasando.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token_admin}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/v1",
+      "description": "Back local. Para develop, cambiar por la URL de Preview de Vercel + /v1"
+    },
+    {
+      "key": "contrasena_prueba",
+      "value": "Prueba1234",
+      "description": "Contraseña de los usuarios de prueba (no es secreta)"
+    },
+    {
+      "key": "token_admin",
+      "value": "",
+      "description": "Token de un Administrador. Vacío mientras el registro sea público"
+    },
+    {
+      "key": "sufijo",
+      "value": ""
+    },
+    {
+      "key": "operario_nombre",
+      "value": ""
+    },
+    {
+      "key": "operario_email",
+      "value": ""
+    },
+    {
+      "key": "operario_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Registro",
+      "description": "POST /v1/auth/registro: alta de usuario. Tiene que seguir funcionando igual cuando se proteja con sesión de Administrador.",
+      "item": [
+        {
+          "name": "POST Registrar operario (sin rol)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Un sufijo nuevo por corrida para no chocar con usuarios de corridas anteriores",
+                  "pm.collectionVariables.set('sufijo', Math.random().toString(36).slice(2, 8));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { usuario, token } = pm.response.json();",
+                  "pm.test('Devuelve el usuario y un token', () => {",
+                  "    pm.expect(usuario).to.be.an('object');",
+                  "    pm.expect(token).to.be.a('string');",
+                  "});",
+                  "pm.test('Sin rol, queda Operario', () => pm.expect(usuario.rol).to.eql('Operario'));",
+                  "pm.test('El token lleva id y rol', () => {",
+                  "    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "    const payload = JSON.parse(CryptoJS.enc.Base64.parse(b64).toString(CryptoJS.enc.Utf8));",
+                  "    pm.expect(payload.userId).to.eql(usuario._id);",
+                  "    pm.expect(payload.rol).to.eql('Operario');",
+                  "    pm.expect(payload.exp).to.be.a('number');",
+                  "});",
+                  "pm.collectionVariables.set('operario_nombre', usuario.nombreUsuario);",
+                  "pm.collectionVariables.set('operario_email', usuario.email);",
+                  "pm.collectionVariables.set('operario_token', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_op_{{sufijo}}\",\n  \"email\": \"test_op_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - normaliza email y nombre",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { usuario } = pm.response.json();",
+                  "pm.test('Email en minúsculas', () => pm.expect(usuario.email).to.eql(usuario.email.toLowerCase()));",
+                  "pm.test('Nombre sin espacios a los costados', () => pm.expect(usuario.nombreUsuario).to.eql(usuario.nombreUsuario.trim()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"  test_norm_{{sufijo}}  \",\n  \"email\": \"TEST_NORM_{{sufijo}}@TEST.COM\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - nombre de usuario corto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo nombreUsuario', () => pm.expect(campos).to.include('nombreUsuario'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"ab\",\n  \"email\": \"t_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - email inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo email', () => pm.expect(campos).to.include('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_mail_{{sufijo}}\",\n  \"email\": \"no-es-un-email\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - contraseña sin mayúscula ni número (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo contrasena', () => pm.expect(campos).to.include('contrasena'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_pass_{{sufijo}}\",\n  \"email\": \"test_pass_{{sufijo}}@test.com\",\n  \"contrasena\": \"solominusculas\",\n  \"repetirContrasena\": \"solominusculas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - contraseñas distintas (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo repetirContrasena', () => pm.expect(campos).to.include('repetirContrasena'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_rep_{{sufijo}}\",\n  \"email\": \"test_rep_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"Otra12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - rol inexistente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo rol', () => pm.expect(campos).to.include('rol'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_rol_{{sufijo}}\",\n  \"email\": \"test_rol_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\",\n  \"rol\": \"Gerente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - campo no permitido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo esAdmin', () => pm.expect(campos).to.include('esAdmin'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_extra_{{sufijo}}\",\n  \"email\": \"test_extra_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\",\n  \"esAdmin\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - body vacío (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const detalles = cuerpo.details ?? cuerpo.error ?? [];",
+                  "const campos = detalles.map(d => d.campo ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo nombreUsuario', () => pm.expect(campos).to.include('nombreUsuario'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Riesgos del registro",
+      "description": "Lo que el registro tiene que cumplir según la decisión del equipo (solo un Administrador con sesión crea usuarios) y las buenas prácticas.\n\n**Estos tests fallan hoy a propósito.** Pasan cuando el backend:\n1. Protege POST /v1/auth/registro con autenticar + autorizar(\"Administrador\").\n2. No devuelve el hash de la contraseña.\n3. Responde 409 ante usuario o email repetido (hoy responde 500).",
+      "item": [
+        {
+          "name": "POST Registrar sin sesión (debería ser 401)",
+          "description": "Cualquiera que tenga la URL de la API puede crearse una cuenta.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechaza el registro sin token (401)', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_anon_{{sufijo}}\",\n  \"email\": \"test_anon_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar Administrador sin sesión (debería ser 401)",
+          "description": "Hoy cualquiera puede darse a sí mismo el perfil Administrador mandando rol en el body.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rechaza el registro sin token (401)', () => pm.response.to.have.status(401));",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test('No entrega una cuenta de Administrador sin sesión', () => {",
+                  "        pm.expect(pm.response.json().usuario.rol).to.not.eql('Administrador');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_anonadm_{{sufijo}}\",\n  \"email\": \"test_anonadm_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\",\n  \"rol\": \"Administrador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - no expone el hash de la contraseña",
+          "description": "La respuesta devuelve el documento completo del usuario, con el hash bcrypt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La respuesta no incluye contrasena', () => {",
+                  "    const texto = pm.response.text();",
+                  "    pm.expect(texto).to.not.include('\"contrasena\"');",
+                  "    pm.expect(texto).to.not.match(/\\$2[aby]\\$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_hash_{{sufijo}}\",\n  \"email\": \"test_hash_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - nombre de usuario repetido (debería ser 409)",
+          "description": "Usa el usuario creado en 01. Hoy el service marca 400 pero el controller responde 500.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Explica el motivo', () => {",
+                  "    const cuerpo = pm.response.json();",
+                  "    pm.expect(cuerpo.message ?? cuerpo.mensaje).to.match(/uso|existe|repetid/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"{{operario_nombre}}\",\n  \"email\": \"test_dupn_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - email repetido (debería ser 409)",
+          "description": "Usa el email del usuario creado en 01.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_dupe_{{sufijo}}\",\n  \"email\": \"{{operario_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const usuarioSchema = new mongoose.Schema({
     nombreUsuario: {
@@ -23,5 +24,14 @@ const usuarioSchema = new mongoose.Schema({
         default: "Operario"
     }
 }, { timestamps: true });
+
+
+usuarioSchema.pre("save", async function () {
+    if (!this.isModified("contrasena")) return;
+
+    const passwordHash = await bcrypt.hash(this.contrasena, Number(process.env.SALT_ROUNDS || 12)
+    );
+    this.contrasena = passwordHash;
+});
 
 export default mongoose.model("Usuario", usuarioSchema);

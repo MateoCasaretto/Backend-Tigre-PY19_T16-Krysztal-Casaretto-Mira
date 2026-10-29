@@ -56,7 +56,14 @@ export const loginUsuarioService = async (email, password) => {
         process.env.SECRET_KEY,
         { expiresIn: "1h" }
     );
-    return { token, userId: usuario._id, twoFactorEnabled: usuario.twoFactorEnabled };
+    return {
+        token,
+        userId: usuario._id,
+        nombreUsuario: usuario.nombreUsuario,
+        email: usuario.email,
+        rol: usuario.rol,
+        twoFactorEnabled: usuario.twoFactorEnabled,
+    };
 };
 
 export const setupTwoFactorService = async (userId) => {

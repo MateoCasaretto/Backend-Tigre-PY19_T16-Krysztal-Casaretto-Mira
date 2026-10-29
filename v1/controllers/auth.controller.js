@@ -32,7 +32,7 @@ export const loginUsuario = async (req, res, next) => {
             }
             await verifyTwoFactorService(result.userId, usuario.token);//si nos pasa el token, lo validamos con la secret del usuario
         }
-        return res.status(200).json({ success: true, message: "Usuario logueado correctamente", token: result.token });
+        return res.status(200).json({ success: true, message: "Usuario logueado correctamente", token: result.token, nombreUsuario: result.nombreUsuario, rol: result.rol, email: result.email, twoFactorEnabled: result.twoFactorEnabled, userId: result.userId });
     } catch (error) {
         res.status(error.status || 500).json({ success: false, message: error.message || "Error al iniciar sesión" });
     }

@@ -12,7 +12,7 @@ const catalogImportSchema = new mongoose.Schema({
     updatedRows: { type: Number, required: true, min: 0 },
     rejectedRows: { type: Number, required: true, min: 0 },
     rejections: [rejectionSchema],
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: true },
 }, { timestamps: true });
 
 export default mongoose.model("CatalogImport", catalogImportSchema);

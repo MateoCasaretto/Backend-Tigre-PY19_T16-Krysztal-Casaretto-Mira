@@ -4,8 +4,8 @@ import connectDB from './v1/config/db.config.js'
 import cors from 'cors'
 
 import v1Router from './v1/index.js';
-import { notFoundMiddleware } from './v1/middlewares/NotFoundMiddleware.js';
-import { errorMiddleware } from './v1/middlewares/ErrorMiddleware.js';
+import { notFoundMiddleware } from './v1/middlewares/notFound.middleware.js';
+import { errorMiddleware } from './v1/middlewares/error.middleware.js';
 
 connectDB();
 

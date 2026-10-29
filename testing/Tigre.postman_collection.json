@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Tigre - API Proyecto Integrador",
-    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_.\n\n- **01 - Registro**: comportamiento actual que tiene que seguir funcionando.\n- **02 - Riesgos del registro**: lo que el registro debería cumplir y hoy no. Estos tests FALLAN a propósito hasta que se corrija el backend.\n\nCuando el registro requiera sesión, cargar `token_admin` (token de un usuario Administrador de tigre_dev) en un environment para que la carpeta 01 siga pasando.",
+    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y productos con prefijo POSTMAN-.\n\n**Antes de correrla**: importar el environment `testing/local.postman_environment.json` (no está en el repo) con `admin_email` y `admin_contrasena` de un Administrador de tigre_dev sin 2FA. Pedírselas a Fernando o crear uno con el skill de MongoDB.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json -e testing/local.postman_environment.json`\n\nLa carpeta **05 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -9,65 +9,18 @@
     "bearer": [
       {
         "key": "token",
-        "value": "{{token_admin}}",
+        "value": "{{administrativeToken}}",
         "type": "string"
       }
     ]
   },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8080/v1",
-      "description": "Back local. Para develop, cambiar por la URL de Preview de Vercel + /v1"
-    },
-    {
-      "key": "contrasena_prueba",
-      "value": "Prueba1234",
-      "description": "Contraseña de los usuarios de prueba (no es secreta)"
-    },
-    {
-      "key": "token_admin",
-      "value": "",
-      "description": "Token de un Administrador. Vacío mientras el registro sea público"
-    },
-    {
-      "key": "sufijo",
-      "value": ""
-    },
-    {
-      "key": "operario_nombre",
-      "value": ""
-    },
-    {
-      "key": "operario_email",
-      "value": ""
-    },
-    {
-      "key": "operario_token",
-      "value": ""
-    },
-    {
-      "key": "administrativeToken",
-      "value": "",
-      "description": "Token de un usuario administrative. Se carga en el environment local (no va al repo)"
-    },
-    {
-      "key": "operatorToken",
-      "value": "",
-      "description": "Token de un usuario operator. Se carga en el environment local (no va al repo)"
-    },
-    {
-      "key": "catalogImportId",
-      "value": ""
-    }
-  ],
   "item": [
     {
-      "name": "01 - Registro",
-      "description": "POST /v1/auth/registro: alta de usuario. Tiene que seguir funcionando igual cuando se proteja con sesión de Administrador.",
+      "name": "00 - Setup",
+      "description": "Inicia sesión con el Administrador de prueba (credenciales en el environment local) y crea un Operario nuevo para las pruebas de permisos.",
       "item": [
         {
-          "name": "POST Registrar operario (sin rol)",
+          "name": "POST Login administrador de prueba",
           "event": [
             {
               "listen": "prerequest",
@@ -79,6 +32,424 @@
                 ]
               }
             },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve un token de Administrador', () => {",
+                  "    pm.expect(body.token).to.be.a('string');",
+                  "    pm.expect(body.rol).to.eql('Administrador');",
+                  "});",
+                  "pm.collectionVariables.set('administrativeToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"contrasena\": \"{{admin_contrasena}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Registrar operario de prueba",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { usuario } = pm.response.json();",
+                  "pm.collectionVariables.set('operario_setup_email', usuario.email);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_setup_{{sufijo}}\",\n  \"email\": \"test_setup_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Login operario de prueba",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve un token de Operario', () => pm.expect(body.rol).to.eql('Operario'));",
+                  "pm.collectionVariables.set('operatorToken', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{operario_setup_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Login",
+      "description": "POST /v1/auth/login (CU18). Pública.",
+      "item": [
+        {
+          "name": "POST Login - devuelve token y datos del usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const decodeToken = (token) => {",
+                  "    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+                  "    return JSON.parse(CryptoJS.enc.Base64.parse(b64).toString(CryptoJS.enc.Utf8));",
+                  "};",
+                  "pm.test('Devuelve token y datos del usuario', () => {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.token).to.be.a('string');",
+                  "    pm.expect(body).to.include.keys('userId', 'nombreUsuario', 'email', 'rol', 'twoFactorEnabled');",
+                  "});",
+                  "pm.test('El token lleva userId y rol', () => {",
+                  "    const payload = decodeToken(body.token);",
+                  "    pm.expect(payload.userId).to.eql(body.userId);",
+                  "    pm.expect(payload.rol).to.eql('Administrador');",
+                  "    pm.expect(payload.exp).to.be.a('number');",
+                  "});",
+                  "pm.test('No expone la contraseña', () => pm.expect(pm.response.text()).to.not.match(/contrasena|\\$2[aby]\\$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"contrasena\": \"{{admin_contrasena}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - email en mayúsculas",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('admin_email_mayusculas', pm.variables.get('admin_email').toUpperCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Inicia sesión igual', () => pm.expect(pm.response.json().token).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email_mayusculas}}\",\n  \"contrasena\": \"{{admin_contrasena}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - contraseña incorrecta (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: Email o contraseña incorrectos', () => pm.expect(pm.response.json().message).to.include(\"Email o contraseña incorrectos\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"contrasena\": \"Incorrecta123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - email no registrado (400, mismo mensaje)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: Email o contraseña incorrectos', () => pm.expect(pm.response.json().message).to.include(\"Email o contraseña incorrectos\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"no_existe_{{sufijo}}@test.com\",\n  \"contrasena\": \"Incorrecta123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - email inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const campos = (cuerpo.details ?? cuerpo.error ?? []).map(d => d.field ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo email', () => pm.expect(campos).to.include('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"no-es-un-email\",\n  \"contrasena\": \"Prueba1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - sin contraseña (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const campos = (cuerpo.details ?? cuerpo.error ?? []).map(d => d.field ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo contrasena', () => pm.expect(campos).to.include('contrasena'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login - código 2FA con formato inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const campos = (cuerpo.details ?? cuerpo.error ?? []).map(d => d.field ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo token', () => pm.expect(campos).to.include('token'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"contrasena\": \"{{admin_contrasena}}\",\n  \"token\": \"12ab\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Registro",
+      "description": "POST /v1/auth/registro. Requiere sesión (token en Authorization).",
+      "item": [
+        {
+          "name": "POST Registrar operario (sin rol)",
+          "event": [
             {
               "listen": "test",
               "script": {
@@ -99,8 +470,7 @@
                   "    pm.expect(payload.exp).to.be.a('number');",
                   "});",
                   "pm.collectionVariables.set('operario_nombre', usuario.nombreUsuario);",
-                  "pm.collectionVariables.set('operario_email', usuario.email);",
-                  "pm.collectionVariables.set('operario_token', token);"
+                  "pm.collectionVariables.set('operario_email', usuario.email);"
                 ]
               }
             }
@@ -116,6 +486,40 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"nombreUsuario\": \"test_op_{{sufijo}}\",\n  \"email\": \"test_op_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Queda con rol Administrador', () => pm.expect(pm.response.json().usuario.rol).to.eql('Administrador'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_adm_{{sufijo}}\",\n  \"email\": \"test_adm_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\",\n  \"rol\": \"Administrador\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -419,31 +823,22 @@
             },
             "url": "{{base_url}}/auth/registro"
           }
-        }
-      ]
-    },
-    {
-      "name": "02 - Riesgos del registro",
-      "description": "Lo que el registro tiene que cumplir según la decisión del equipo (solo un Administrador con sesión crea usuarios) y las buenas prácticas.\n\n**Estos tests fallan hoy a propósito.** Pasan cuando el backend:\n1. Protege POST /v1/auth/registro con autenticar + autorizar(\"Administrador\").\n2. No devuelve el hash de la contraseña.\n3. Responde 409 ante usuario o email repetido (hoy responde 500).",
-      "item": [
+        },
         {
-          "name": "POST Registrar sin sesión (debería ser 401)",
-          "description": "Cualquiera que tenga la URL de la API puede crearse una cuenta.",
+          "name": "POST Registrar - sin token (401)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Rechaza el registro sin token (401)', () => pm.response.to.have.status(401));"
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Mensaje: Token no proporcionado', () => pm.expect(pm.response.json().message).to.include(\"Token no proporcionado\"));"
                 ]
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [
               {
@@ -451,6 +846,9 @@
                 "value": "application/json"
               }
             ],
+            "auth": {
+              "type": "noauth"
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"nombreUsuario\": \"test_anon_{{sufijo}}\",\n  \"email\": \"test_anon_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
@@ -462,63 +860,150 @@
             },
             "url": "{{base_url}}/auth/registro"
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "03 - Doble factor (2FA)",
+      "description": "POST /v1/auth/2fa/setup y /2fa/enable, y el login con código. El código de 6 dígitos se calcula en el pre-request a partir del secret, como lo haría la app de autenticación.",
+      "item": [
         {
-          "name": "POST Registrar Administrador sin sesión (debería ser 401)",
-          "description": "Hoy cualquiera puede darse a sí mismo el perfil Administrador mandando rol en el body.",
+          "name": "POST Registrar usuario para 2FA",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Rechaza el registro sin token (401)', () => pm.response.to.have.status(401));",
-                  "if (pm.response.code === 201) {",
-                  "    pm.test('No entrega una cuenta de Administrador sin sesión', () => {",
-                  "        pm.expect(pm.response.json().usuario.rol).to.not.eql('Administrador');",
-                  "    });",
-                  "}"
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('usuario_2fa_email', pm.response.json().usuario.email);"
                 ]
               }
             }
           ],
           "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_2fa_{{sufijo}}\",\n  \"email\": \"test_2fa_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Login usuario para 2FA (sin 2FA todavía)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Todavía no tiene 2FA', () => pm.expect(body.twoFactorEnabled).to.eql(false));",
+                  "pm.collectionVariables.set('token_2fa', body.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "auth": {
               "type": "noauth"
             },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombreUsuario\": \"test_anonadm_{{sufijo}}\",\n  \"email\": \"test_anonadm_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\",\n  \"rol\": \"Administrador\"\n}",
+              "raw": "{\n  \"email\": \"{{usuario_2fa_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": "{{base_url}}/auth/registro"
+            "url": "{{base_url}}/auth/login"
           }
         },
         {
-          "name": "POST Registrar - no expone el hash de la contraseña",
-          "description": "La respuesta devuelve el documento completo del usuario, con el hash bcrypt.",
+          "name": "POST Configurar 2FA - devuelve secret y QR",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('La respuesta no incluye contrasena', () => {",
-                  "    const texto = pm.response.text();",
-                  "    pm.expect(texto).to.not.include('\"contrasena\"');",
-                  "    pm.expect(texto).to.not.match(/\\$2[aby]\\$/);",
-                  "});"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve el secret en base32', () => pm.expect(body.secret).to.match(/^[A-Z2-7]+=*$/));",
+                  "pm.test('Devuelve el QR como imagen', () => pm.expect(body.qrCode).to.match(/^data:image\\/png;base64,/));",
+                  "pm.collectionVariables.set('secret_2fa', body.secret);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/auth/2fa/setup"
+          }
+        },
+        {
+          "name": "POST Activar 2FA - código incorrecto (400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const totp = (secret) => {",
+                  "    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    const bits = secret.replace(/=+$/, '').split('').map(c => alphabet.indexOf(c).toString(2).padStart(5, '0')).join('');",
+                  "    const keyHex = bits.match(/.{8}/g).map(b => parseInt(b, 2).toString(16).padStart(2, '0')).join('');",
+                  "    const counterHex = Math.floor(Date.now() / 30000).toString(16).padStart(16, '0');",
+                  "    const hmac = CryptoJS.HmacSHA1(CryptoJS.enc.Hex.parse(counterHex), CryptoJS.enc.Hex.parse(keyHex)).toString();",
+                  "    const offset = parseInt(hmac.slice(-1), 16);",
+                  "    const code = (parseInt(hmac.substr(offset * 2, 8), 16) & 0x7fffffff) % 1000000;",
+                  "    return String(code).padStart(6, '0');",
+                  "};",
+                  "// Un código de 6 dígitos que seguro no es el de este momento",
+                  "const correcto = totp(pm.collectionVariables.get('secret_2fa'));",
+                  "pm.collectionVariables.set('codigo_incorrecto', String((Number(correcto) + 500000) % 1000000).padStart(6, '0'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: Código inválido', () => pm.expect(pm.response.json().message).to.include(\"Código inválido\"));"
                 ]
               }
             }
@@ -531,32 +1016,40 @@
                 "value": "application/json"
               }
             ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombreUsuario\": \"test_hash_{{sufijo}}\",\n  \"email\": \"test_hash_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "raw": "{\n  \"token\": \"{{codigo_incorrecto}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": "{{base_url}}/auth/registro"
+            "url": "{{base_url}}/auth/2fa/enable"
           }
         },
         {
-          "name": "POST Registrar - nombre de usuario repetido (debería ser 409)",
-          "description": "Usa el usuario creado en 01. Hoy el service marca 400 pero el controller responde 500.",
+          "name": "POST Activar 2FA - sin código (400)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
-                  "pm.test('Explica el motivo', () => {",
-                  "    const cuerpo = pm.response.json();",
-                  "    pm.expect(cuerpo.message ?? cuerpo.mensaje).to.match(/uso|existe|repetid/i);",
-                  "});"
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const cuerpo = pm.response.json();",
+                  "const campos = (cuerpo.details ?? cuerpo.error ?? []).map(d => d.field ?? (d.path || []).join('.'));",
+                  "pm.test('Señala el campo token', () => pm.expect(campos).to.include('token'));"
                 ]
               }
             }
@@ -569,28 +1062,57 @@
                 "value": "application/json"
               }
             ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombreUsuario\": \"{{operario_nombre}}\",\n  \"email\": \"test_dupn_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "raw": "{}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": "{{base_url}}/auth/registro"
+            "url": "{{base_url}}/auth/2fa/enable"
           }
         },
         {
-          "name": "POST Registrar - email repetido (debería ser 409)",
-          "description": "Usa el email del usuario creado en 01.",
+          "name": "POST Activar 2FA",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const totp = (secret) => {",
+                  "    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    const bits = secret.replace(/=+$/, '').split('').map(c => alphabet.indexOf(c).toString(2).padStart(5, '0')).join('');",
+                  "    const keyHex = bits.match(/.{8}/g).map(b => parseInt(b, 2).toString(16).padStart(2, '0')).join('');",
+                  "    const counterHex = Math.floor(Date.now() / 30000).toString(16).padStart(16, '0');",
+                  "    const hmac = CryptoJS.HmacSHA1(CryptoJS.enc.Hex.parse(counterHex), CryptoJS.enc.Hex.parse(keyHex)).toString();",
+                  "    const offset = parseInt(hmac.slice(-1), 16);",
+                  "    const code = (parseInt(hmac.substr(offset * 2, 8), 16) & 0x7fffffff) % 1000000;",
+                  "    return String(code).padStart(6, '0');",
+                  "};",
+                  "pm.collectionVariables.set('codigo_2fa', totp(pm.collectionVariables.get('secret_2fa')));"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 409', () => pm.response.to.have.status(409));"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Confirma la activación', () => pm.expect(pm.response.json().message).to.include('activado'));"
                 ]
               }
             }
@@ -603,23 +1125,284 @@
                 "value": "application/json"
               }
             ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombreUsuario\": \"test_dupe_{{sufijo}}\",\n  \"email\": \"{{operario_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "raw": "{\n  \"token\": \"{{codigo_2fa}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": "{{base_url}}/auth/registro"
+            "url": "{{base_url}}/auth/2fa/enable"
+          }
+        },
+        {
+          "name": "POST Activar 2FA - ya activado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: ya está activado', () => pm.expect(pm.response.json().message).to.include(\"ya está activado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{codigo_2fa}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/2fa/enable"
+          }
+        },
+        {
+          "name": "POST Configurar 2FA - ya activado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: ya está activado', () => pm.expect(pm.response.json().message).to.include(\"ya está activado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_2fa}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/auth/2fa/setup"
+          }
+        },
+        {
+          "name": "POST Login con 2FA - sin código pide el código",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pide el código de la app', () => pm.expect(body.requiere2FA).to.eql(true));",
+                  "pm.test('No entrega el token todavía', () => pm.expect(body.token).to.be.undefined);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{usuario_2fa_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login con 2FA - código incorrecto (400)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const totp = (secret) => {",
+                  "    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    const bits = secret.replace(/=+$/, '').split('').map(c => alphabet.indexOf(c).toString(2).padStart(5, '0')).join('');",
+                  "    const keyHex = bits.match(/.{8}/g).map(b => parseInt(b, 2).toString(16).padStart(2, '0')).join('');",
+                  "    const counterHex = Math.floor(Date.now() / 30000).toString(16).padStart(16, '0');",
+                  "    const hmac = CryptoJS.HmacSHA1(CryptoJS.enc.Hex.parse(counterHex), CryptoJS.enc.Hex.parse(keyHex)).toString();",
+                  "    const offset = parseInt(hmac.slice(-1), 16);",
+                  "    const code = (parseInt(hmac.substr(offset * 2, 8), 16) & 0x7fffffff) % 1000000;",
+                  "    return String(code).padStart(6, '0');",
+                  "};",
+                  "const correcto = totp(pm.collectionVariables.get('secret_2fa'));",
+                  "pm.collectionVariables.set('codigo_incorrecto', String((Number(correcto) + 500000) % 1000000).padStart(6, '0'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: Código inválido', () => pm.expect(pm.response.json().message).to.include(\"Código inválido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{usuario_2fa_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"token\": \"{{codigo_incorrecto}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Login con 2FA - código correcto",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const totp = (secret) => {",
+                  "    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    const bits = secret.replace(/=+$/, '').split('').map(c => alphabet.indexOf(c).toString(2).padStart(5, '0')).join('');",
+                  "    const keyHex = bits.match(/.{8}/g).map(b => parseInt(b, 2).toString(16).padStart(2, '0')).join('');",
+                  "    const counterHex = Math.floor(Date.now() / 30000).toString(16).padStart(16, '0');",
+                  "    const hmac = CryptoJS.HmacSHA1(CryptoJS.enc.Hex.parse(counterHex), CryptoJS.enc.Hex.parse(keyHex)).toString();",
+                  "    const offset = parseInt(hmac.slice(-1), 16);",
+                  "    const code = (parseInt(hmac.substr(offset * 2, 8), 16) & 0x7fffffff) % 1000000;",
+                  "    return String(code).padStart(6, '0');",
+                  "};",
+                  "pm.collectionVariables.set('codigo_2fa', totp(pm.collectionVariables.get('secret_2fa')));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Entrega el token', () => pm.expect(body.token).to.be.a('string'));",
+                  "pm.test('Marca el 2FA activo', () => pm.expect(body.twoFactorEnabled).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{usuario_2fa_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"token\": \"{{codigo_2fa}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Configurar 2FA - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Mensaje: Token no proporcionado', () => pm.expect(pm.response.json().message).to.include(\"Token no proporcionado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/auth/2fa/setup"
           }
         }
       ]
     },
     {
-      "name": "03 - Importación del catálogo",
-      "description": "CU06. Requiere `administrativeToken` y `operatorToken` en el environment. Los archivos están en testing/files: correr newman desde la raíz del repo.",
+      "name": "04 - Importación del catálogo",
+      "description": "CU06. Los tokens salen de 00 - Setup. Los archivos están en testing/files: correr newman desde la raíz del repo.",
       "auth": {
         "type": "bearer",
         "bearer": [
@@ -1040,6 +1823,296 @@
           }
         }
       ]
+    },
+    {
+      "name": "05 - Riesgos conocidos",
+      "description": "Lo que la API debería cumplir según la decisión del equipo y las buenas prácticas.\n\n**Estos tests FALLAN a propósito** hasta que se corrija el backend:\n1. Solo un Administrador puede registrar usuarios (hoy cualquier usuario con sesión puede).\n2. El registro no debería devolver el hash de la contraseña.\n3. Usuario o email repetido debería ser 409 (hoy es 500).\n4. Credenciales incorrectas en el login deberían ser 401 (hoy es 400).\n5. Un token inválido o vencido debería ser 401 (hoy es 403).",
+      "item": [
+        {
+          "name": "POST Registrar con sesión de Operario (debería ser 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Un Operario no puede crear usuarios (403)', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_byop_{{sufijo}}\",\n  \"email\": \"test_byop_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - no expone el hash de la contraseña",
+          "description": "La respuesta devuelve el documento completo del usuario, con el hash bcrypt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('La respuesta no incluye contrasena', () => {",
+                  "    const texto = pm.response.text();",
+                  "    pm.expect(texto).to.not.include('\"contrasena\"');",
+                  "    pm.expect(texto).to.not.match(/\\$2[aby]\\$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_hash_{{sufijo}}\",\n  \"email\": \"test_hash_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - nombre de usuario repetido (debería ser 409)",
+          "description": "Usa el usuario creado en 01. Hoy el service marca 400 pero el controller responde 500.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Explica el motivo', () => {",
+                  "    const cuerpo = pm.response.json();",
+                  "    pm.expect(cuerpo.message ?? cuerpo.mensaje).to.match(/uso|existe|repetid/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"{{operario_nombre}}\",\n  \"email\": \"test_dupn_{{sufijo}}@test.com\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Registrar - email repetido (debería ser 409)",
+          "description": "Usa el email del usuario creado en 01.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"test_dupe_{{sufijo}}\",\n  \"email\": \"{{operario_email}}\",\n  \"contrasena\": \"{{contrasena_prueba}}\",\n  \"repetirContrasena\": \"{{contrasena_prueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/registro"
+          }
+        },
+        {
+          "name": "POST Login - contraseña incorrecta (debería ser 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Credenciales incorrectas (401)', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"contrasena\": \"Incorrecta123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "GET Token inválido (debería ser 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Token inválido (401)', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "token-invalido",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/catalog/imports/template"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/v1",
+      "description": "Back local. Para develop, cambiar por la URL de Preview de Vercel + /v1"
+    },
+    {
+      "key": "contrasena_prueba",
+      "value": "Prueba1234",
+      "description": "Contraseña de los usuarios de prueba que crea la colección (no es secreta)"
+    },
+    {
+      "key": "sufijo",
+      "value": ""
+    },
+    {
+      "key": "administrativeToken",
+      "value": "",
+      "description": "Se completa en 00 - Setup"
+    },
+    {
+      "key": "operatorToken",
+      "value": "",
+      "description": "Se completa en 00 - Setup"
+    },
+    {
+      "key": "operario_setup_email",
+      "value": ""
+    },
+    {
+      "key": "operario_nombre",
+      "value": ""
+    },
+    {
+      "key": "operario_email",
+      "value": ""
+    },
+    {
+      "key": "admin_email_mayusculas",
+      "value": ""
+    },
+    {
+      "key": "usuario_2fa_email",
+      "value": ""
+    },
+    {
+      "key": "token_2fa",
+      "value": ""
+    },
+    {
+      "key": "secret_2fa",
+      "value": ""
+    },
+    {
+      "key": "codigo_2fa",
+      "value": ""
+    },
+    {
+      "key": "codigo_incorrecto",
+      "value": ""
+    },
+    {
+      "key": "catalogImportId",
+      "value": ""
     }
   ]
 }

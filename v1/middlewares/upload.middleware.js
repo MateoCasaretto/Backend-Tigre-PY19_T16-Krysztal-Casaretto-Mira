@@ -1,7 +1,7 @@
 import path from "node:path";
 import multer from "multer";
-import { createError } from "../utils/ErrorUtils.js";
-import { CATALOG_FILE_TYPES } from "../utils/Enums.js";
+import { createError } from "../utils/error.utils.js";
+import { CATALOG_FILE_TYPES } from "../utils/enums.utils.js";
 
 export const uploadCatalogFile = multer({
     storage: multer.memoryStorage(),

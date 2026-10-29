@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Tigre - API Proyecto Integrador",
-    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y productos con prefijo POSTMAN-.\n\n**Antes de correrla**: importar el environment `testing/local.postman_environment.json` (no está en el repo) con `admin_email` y `admin_contrasena` de un Administrador de tigre_dev sin 2FA. Pedírselas a Fernando o crear uno con el skill de MongoDB.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json -e testing/local.postman_environment.json`\n\nLa carpeta **05 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
+    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y productos con prefijo POSTMAN-.\n\n**Plug and play**: no necesita environment. Inicia sesión con el Administrador de prueba `postman_admin@test.com`, que existe solo en tigre_dev, y si no puede (por ejemplo, contra producción) corta la corrida sin crear nada.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json`\n\nLa carpeta **05 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -28,7 +28,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "// Un sufijo nuevo por corrida para no chocar con usuarios de corridas anteriores",
-                  "pm.collectionVariables.set('sufijo', Math.random().toString(36).slice(2, 8));"
+                  "pm.collectionVariables.set('sufijo', Math.random().toString(36).slice(2, 8));",
+                  "// Contraseña nueva por corrida para los usuarios de prueba: así no queda ninguna cuenta con una contraseña publicada en el repo",
+                  "pm.collectionVariables.set(\"contrasena_prueba\", \"Pr\" + Math.random().toString(36).slice(2, 10) + \"9A\");"
                 ]
               }
             },
@@ -37,13 +39,19 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.test('Devuelve un token de Administrador', () => {",
-                  "    pm.expect(body.token).to.be.a('string');",
-                  "    pm.expect(body.rol).to.eql('Administrador');",
-                  "});",
-                  "pm.collectionVariables.set('administrativeToken', body.token);"
+                  "// Si el Administrador de prueba no existe (por ejemplo, contra producción), corta la corrida antes de crear datos",
+                  "if (pm.response.code !== 200) {",
+                  "    pm.test(\"Inicia sesión con el Administrador de prueba (la colección solo corre contra tigre_dev)\", () => pm.expect.fail(pm.response.text()));",
+                  "    pm.execution.setNextRequest(null);",
+                  "} else {",
+                  "    pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Devuelve un token de Administrador', () => {",
+                  "        pm.expect(body.token).to.be.a('string');",
+                  "        pm.expect(body.rol).to.eql('Administrador');",
+                  "    });",
+                  "    pm.collectionVariables.set('administrativeToken', body.token);",
+                  "}"
                 ]
               }
             }
@@ -2057,8 +2065,18 @@
     },
     {
       "key": "contrasena_prueba",
-      "value": "Prueba1234",
-      "description": "Contraseña de los usuarios de prueba que crea la colección (no es secreta)"
+      "value": "",
+      "description": "Se genera al azar en 00 - Setup en cada corrida"
+    },
+    {
+      "key": "admin_email",
+      "value": "postman_admin@test.com",
+      "description": "Administrador de prueba. Existe solo en tigre_dev; en tigre_prod no hay que crearlo nunca"
+    },
+    {
+      "key": "admin_contrasena",
+      "value": "Tigre8de179fcc7a2Pm1",
+      "description": "Contraseña del Administrador de prueba. Es pública (el repo es público): no usarla en ningún otro lado"
     },
     {
       "key": "sufijo",

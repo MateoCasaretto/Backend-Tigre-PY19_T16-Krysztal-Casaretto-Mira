@@ -1,11 +1,11 @@
 import path from "node:path";
 import mongoose from "mongoose";
 import ExcelJS from "exceljs";
-import Product from "../models/ProductModel.js";
-import CatalogImport from "../models/CatalogImportModel.js";
-import { catalogRowSchema } from "../validators/CatalogImportValidator.js";
-import { normalizeHeader, readSpreadsheet } from "../utils/SpreadsheetUtils.js";
-import { createError } from "../utils/ErrorUtils.js";
+import Product from "../models/product.model.js";
+import CatalogImport from "../models/catalogImport.model.js";
+import { catalogRowSchema } from "../validators/catalogImport.validator.js";
+import { normalizeHeader, readSpreadsheet } from "../utils/spreadsheet.utils.js";
+import { createError } from "../utils/error.utils.js";
 
 // Columnas del catálogo: la misma lista arma el template y valida los archivos que se suben
 const CATALOG_COLUMNS = [

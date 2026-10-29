@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
-import { createError } from "./ErrorUtils.js";
-import { CATALOG_FILE_TYPES } from "./Enums.js";
+import { createError } from "./error.utils.js";
+import { CATALOG_FILE_TYPES } from "./enums.utils.js";
 
 // Deja los encabezados comparables: sin tildes, en minúsculas y con espacios simples
 export const normalizeHeader = (text) =>

@@ -21,6 +21,14 @@ const usuarioSchema = new mongoose.Schema({
         type: String,
         enum: ["Administrador", "Operario"],
         default: "Operario"
+    },
+    twoFactorSecret: { //esto es el secret entre el servidor y la app de autenticación (esto se genera en el endpoint "/2fa/setup")
+        type: String,
+        select: false
+    },
+    twoFactorEnabled: { //esto es para que el usuario active el 2fa
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

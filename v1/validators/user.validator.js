@@ -51,4 +51,39 @@ export const registroSchema = Joi.object({
         })
 });
 
+export const loginSchema = Joi.object({
+    email: Joi.string()
+        .trim()
+        .lowercase()
+        .email()
+        .required()
+        .messages({
+            "string.email": "Debe ser un email válido",
+            "string.empty": "El email no puede estar vacío",
+            "any.required": "El email es obligatorio"
+        }),
 
+    contrasena: Joi.string()
+        .required()
+        .messages({
+            "string.empty": "La contraseña no puede estar vacía",
+            "any.required": "La contraseña es obligatoria"
+        }),
+    token: Joi.string()
+    .pattern(/^\d{6}$/)
+    .messages({
+        "string.pattern.base": "El código debe tener 6 dígitos"
+    })
+});
+
+
+export const twoFactorSchema = Joi.object({
+    token: Joi.string()
+        .pattern(/^\d{6}$/)
+        .required()
+        .messages({
+            "string.pattern.base": "El código debe tener 6 dígitos",
+            "string.empty": "El código no puede estar vacío",
+            "any.required": "El código es obligatorio"
+        })
+});

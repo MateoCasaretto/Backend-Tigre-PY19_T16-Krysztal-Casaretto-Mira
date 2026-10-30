@@ -11,6 +11,7 @@ const catalogImportSchema = new mongoose.Schema({
     importedRows: { type: Number, required: true, min: 0 },
     updatedRows: { type: Number, required: true, min: 0 },
     rejectedRows: { type: Number, required: true, min: 0 },
+    assignedBarcodes: { type: Number, default: 0, min: 0 },
     rejections: [rejectionSchema],
     user: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: true },
 }, { timestamps: true });

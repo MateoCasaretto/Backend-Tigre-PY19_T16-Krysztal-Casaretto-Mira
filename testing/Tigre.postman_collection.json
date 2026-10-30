@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Tigre - API Proyecto Integrador",
-    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y productos con prefijo POSTMAN-.\n\n**Plug and play**: no necesita environment. Inicia sesión con el Administrador de prueba `postman_admin@test.com`, que existe solo en tigre_dev, y si no puede (por ejemplo, contra producción) corta la corrida sin crear nada.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json`\n\nLa carpeta **05 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
+    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y productos con prefijo POSTMAN-.\n\n**Plug and play**: no necesita environment. Inicia sesión con el Administrador de prueba `postman_admin@test.com`, que existe solo en tigre_dev, y si no puede (por ejemplo, contra producción) corta la corrida sin crear nada.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json`\n\nLa carpeta **06 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1833,7 +1833,717 @@
       ]
     },
     {
-      "name": "05 - Riesgos conocidos",
+      "name": "05 - Códigos de barras (CU19)",
+      "description": "CU19: asociar a cada producto el código de barras del envase (EAN-8, UPC-A, EAN-13 o DUN-14) e identificarlo por ese código. Usa los productos POSTMAN-0101 y POSTMAN-0102 que importa la carpeta 04, con códigos al azar en cada corrida.",
+      "item": [
+        {
+          "name": "GET Buscar productos por código SAP",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ean13 = () => {",
+                  "    const digits = [2, ...Array.from({ length: 11 }, () => Math.floor(Math.random() * 10))];",
+                  "    const sum = [...digits].reverse().reduce((total, digit, index) => total + digit * (index % 2 === 0 ? 3 : 1), 0);",
+                  "    return digits.join('') + ((10 - (sum % 10)) % 10);",
+                  "};",
+                  "pm.collectionVariables.set('barcode', ean13());",
+                  "pm.collectionVariables.set('newBarcode', ean13());",
+                  "pm.collectionVariables.set('unassignedBarcode', ean13());",
+                  "// Mismo código con el dígito verificador cambiado",
+                  "const valid = pm.collectionVariables.get('barcode');",
+                  "pm.collectionVariables.set('wrongCheckBarcode', valid.slice(0, 12) + ((Number(valid[12]) + 1) % 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { message, data: products, pagination } = pm.response.json();",
+                  "pm.test('Devuelve message, data y pagination', () => {",
+                  "    pm.expect(message).to.be.a('string');",
+                  "    pm.expect(products).to.be.an('array');",
+                  "    pm.expect(pagination).to.include.keys('total', 'page', 'limit', 'totalPages');",
+                  "});",
+                  "const product = products.find((p) => p.sapCode === 'POSTMAN-0101');",
+                  "const otherProduct = products.find((p) => p.sapCode === 'POSTMAN-0102');",
+                  "pm.test('Encuentra los productos importados en 04', () => {",
+                  "    pm.expect(product, 'POSTMAN-0101').to.be.an('object');",
+                  "    pm.expect(otherProduct, 'POSTMAN-0102').to.be.an('object');",
+                  "});",
+                  "pm.test('No expone el historial de códigos', () => pm.expect(product).to.not.have.property('barcodeHistory'));",
+                  "pm.collectionVariables.set('productId', product._id);",
+                  "pm.collectionVariables.set('otherProductId', otherProduct._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?search=POSTMAN-010&limit=50"
+          }
+        },
+        {
+          "name": "PUT Asociar código de barras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { message, data: result } = pm.response.json();",
+                  "pm.test('Devuelve el producto con el código', () => {",
+                  "    pm.expect(message).to.eql('Código de barras asociado');",
+                  "    pm.expect(result.sapCode).to.eql('POSTMAN-0101');",
+                  "    pm.expect(result.barcode).to.eql(pm.collectionVariables.get('barcode'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{barcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - el mismo código no cambia nada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { message, data: result } = pm.response.json();",
+                  "pm.test('Avisa que ya lo tenía', () => pm.expect(message).to.include('ya tenía'));",
+                  "pm.test('El código sigue igual', () => pm.expect(result.barcode).to.eql(pm.collectionVariables.get('barcode')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{barcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "GET Identificar producto por código de barras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: result } = pm.response.json();",
+                  "pm.test('Devuelve el producto y su código SAP', () => {",
+                  "    pm.expect(result.sapCode).to.eql('POSTMAN-0101');",
+                  "    pm.expect(result.barcode).to.eql(pm.collectionVariables.get('barcode'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/{{barcode}}"
+          }
+        },
+        {
+          "name": "GET Buscar productos por código de barras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: result } = pm.response.json();",
+                  "pm.test('Encuentra solo ese producto', () => {",
+                  "    pm.expect(result).to.have.lengthOf(1);",
+                  "    pm.expect(result[0].sapCode).to.eql('POSTMAN-0101');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?search={{barcode}}"
+          }
+        },
+        {
+          "name": "PUT Reemplazar código de barras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: result } = pm.response.json();",
+                  "pm.test('Queda el código nuevo', () => pm.expect(result.barcode).to.eql(pm.collectionVariables.get('newBarcode')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{newBarcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "GET Identificar - el código reemplazado ya no corresponde (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"no tiene correspondencia\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/{{barcode}}"
+          }
+        },
+        {
+          "name": "PUT Asociar - código de otro producto (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"ya está asociado\"));",
+                  "pm.test('Dice a qué producto está asociado', () => pm.expect(body.message).to.include('POSTMAN-0101'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{otherProductId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{newBarcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - dígito verificador incorrecto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"no es válido\"));",
+                  "pm.test('Detalle por campo', () => pm.expect(body.details[0].field).to.eql('barcode'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{wrongCheckBarcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - con letras (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"no es válido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"ABC123456789\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - largo no admitido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"no es válido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"1234567\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - sin código (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"Falta el código de barras\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - producto inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"Producto no encontrado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/000000000000000000000000/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{unassignedBarcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - id mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"Id inválido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/abc/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{unassignedBarcode}}\"}"
+            }
+          }
+        },
+        {
+          "name": "GET Identificar - código sin correspondencia (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"Buscá el producto por código SAP o nombre\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/{{unassignedBarcode}}"
+          }
+        },
+        {
+          "name": "GET Identificar - formato inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"no es válido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/12345"
+          }
+        },
+        {
+          "name": "GET Buscar - límite fuera de rango (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"límite\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?limit=0"
+          }
+        },
+        {
+          "name": "GET Identificar - perfil operativo puede identificar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Devuelve el producto', () => pm.expect(pm.response.json().data.sapCode).to.eql('POSTMAN-0101'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/{{newBarcode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"permisos\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{unassignedBarcode}}\"}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT Asociar - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{productId}}/barcode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"barcode\": \"{{unassignedBarcode}}\"}"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET Buscar productos - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST Importar catálogo con códigos de barras",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { data: summary } = pm.response.json();",
+                  "pm.test('Importa las 2 filas válidas', () => pm.expect(summary.importedRows + summary.updatedRows).to.eql(2));",
+                  "pm.test('Informa los códigos asociados', () => pm.expect(summary.assignedBarcodes).to.be.a('number'));",
+                  "pm.test('Rechaza el dígito verificador incorrecto y el código repetido', () => {",
+                  "    pm.expect(summary.rejections.map((r) => r.row)).to.eql([4, 5, 6]);",
+                  "    pm.expect(summary.rejections[0].reason).to.include('no es válido');",
+                  "    pm.expect(summary.rejections[1].reason).to.include('repetido');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/catalog/imports",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "testing/files/catalog-barcodes.csv"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Identificar - código cargado por importación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Corresponde al producto del archivo', () => pm.expect(pm.response.json().data.sapCode).to.eql('POSTMAN-0201'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/barcode/2000000000015"
+          }
+        },
+        {
+          "name": "POST Importar - código de barras de otro producto (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de error', () => pm.expect(body.message).to.include(\"ninguna fila es válida\"));",
+                  "pm.test('Dice a qué producto está asociado', () => pm.expect(body.details[0].message).to.include('POSTMAN-0201'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/catalog/imports",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "testing/files/catalog-barcode-conflict.csv"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Riesgos conocidos",
       "description": "Lo que la API debería cumplir según la decisión del equipo y las buenas prácticas.\n\n**Estos tests FALLAN a propósito** hasta que se corrija el backend:\n1. Solo un Administrador puede registrar usuarios (hoy cualquier usuario con sesión puede).\n2. El registro no debería devolver el hash de la contraseña.\n3. Usuario o email repetido debería ser 409 (hoy es 500).\n4. Credenciales incorrectas en el login deberían ser 401 (hoy es 400).\n5. Un token inválido o vencido debería ser 401 (hoy es 403).",
       "item": [
         {
@@ -2131,6 +2841,36 @@
     {
       "key": "catalogImportId",
       "value": ""
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
+    },
+    {
+      "key": "otherProductId",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
+    },
+    {
+      "key": "barcode",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
+    },
+    {
+      "key": "newBarcode",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
+    },
+    {
+      "key": "unassignedBarcode",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
+    },
+    {
+      "key": "wrongCheckBarcode",
+      "value": "",
+      "description": "Se completa en 05 - Códigos de barras"
     }
   ]
 }

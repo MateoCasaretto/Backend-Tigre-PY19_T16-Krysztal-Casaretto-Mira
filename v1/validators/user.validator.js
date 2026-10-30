@@ -87,3 +87,49 @@ export const twoFactorSchema = Joi.object({
             "any.required": "El código es obligatorio"
         })
 });
+
+export const forgotPasswordSchema = Joi.object({
+    email: Joi.string()
+        .trim()
+        .lowercase()
+        .email()
+        .required()
+        .messages({
+            "string.email": "Debe ser un email válido",
+            "string.empty": "El email no puede estar vacío",
+            "any.required": "El email es obligatorio"
+        })
+});
+
+export const resetPasswordSchema = Joi.object({
+    token: Joi.string()
+        .hex()
+        .length(64)
+        .required()
+        .messages({
+            "string.empty": "El enlace de recuperación no es válido. Solicitá uno nuevo",
+            "string.hex": "El enlace de recuperación no es válido. Solicitá uno nuevo",
+            "string.length": "El enlace de recuperación no es válido. Solicitá uno nuevo",
+            "any.required": "El token de recuperación es obligatorio"
+        }),
+
+    newPassword: Joi.string()
+        .min(8)
+        .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).+$"))
+        .required()
+        .messages({
+            "string.min": "La contraseña debe tener al menos 8 caracteres",
+            "string.pattern.base": "La contraseña debe tener al menos una mayúscula, una minúscula y un número",
+            "string.empty": "La nueva contraseña no puede estar vacía",
+            "any.required": "La nueva contraseña es obligatoria"
+        }),
+
+    confirmPassword: Joi.string()
+        .valid(Joi.ref("newPassword"))
+        .required()
+        .messages({
+            "any.only": "Las contraseñas no coinciden",
+            "string.empty": "Debes repetir la contraseña",
+            "any.required": "Debes repetir la contraseña"
+        })
+});

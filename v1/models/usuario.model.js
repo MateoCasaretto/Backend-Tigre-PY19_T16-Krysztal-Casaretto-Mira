@@ -29,7 +29,19 @@ const usuarioSchema = new mongoose.Schema({
     twoFactorEnabled: { //esto es para que el usuario active el 2fa
         type: Boolean,
         default: false
+    },
+    // Recuperación de contraseña
+    resetPasswordToken: {
+        type: String,
+        default: null,
+        select: false
+    },
+    resetPasswordExpiresAt: {
+        type: Date,
+        default: null,
+        select: false
     }
+
 }, { timestamps: true });
 
 export default mongoose.model("Usuario", usuarioSchema);

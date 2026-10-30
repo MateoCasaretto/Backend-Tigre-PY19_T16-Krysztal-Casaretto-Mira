@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { BARCODE_FORMAT_MESSAGE, isValidBarcode } from "../utils/barcode.utils.js";
 
 // Una fila del archivo de catálogo, con los textos tal como vienen de las celdas
 export const catalogRowSchema = Joi.object({
@@ -17,5 +18,11 @@ export const catalogRowSchema = Joi.object({
     productLine: Joi.string().trim().max(100).required().messages({
         "string.empty": "Falta la línea de producto",
         "string.max": "La línea de producto no puede tener más de 100 caracteres",
+    }),
+    // CU19: opcional; vacío deja el código de barras que el producto ya tenga
+    barcode: Joi.string().trim().allow("").custom((value, helpers) => (
+        isValidBarcode(value) ? value : helpers.error("barcode.format")
+    )).messages({
+        "barcode.format": `El código de barras {#value} no es válido. ${BARCODE_FORMAT_MESSAGE}`,
     }),
 });

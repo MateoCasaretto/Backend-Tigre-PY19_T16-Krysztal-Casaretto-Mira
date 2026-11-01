@@ -30,6 +30,5 @@ export const requireSetupToken = (req, res, next) => {
             message: "Token no válido para configurar el doble factor"
         });
     }
-
     next();
 };

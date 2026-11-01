@@ -4,7 +4,33 @@ import jwt from "jsonwebtoken";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
 
+export const createSetupToken = (user) => {
+    return jwt.sign(
+        {
+            userId: user._id,
+            purpose: "two_factor_setup"
+        },
+        process.env.SECRET_KEY,
+        { expiresIn: "15m" }
+    );
+};
+
+export const createAccessToken = (user) => {
+    return jwt.sign(
+        {
+            userId: user._id,
+            nombreUsuario: user.nombreUsuario,
+            rol: user.rol,
+            purpose: "access"
+        },
+        process.env.SECRET_KEY,
+        { expiresIn: "1h" }
+    );
+};
+
 export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena, repetirContrasena, rol }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (contrasena !== repetirContrasena) {
         const error = new Error("Las contraseñas no coinciden");
         error.status = 400;
@@ -12,12 +38,12 @@ export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena
     }
 
     const usuarioExistente = await Usuario.findOne({
-        $or: [{ nombreUsuario }, { email }]
+        $or: [{ nombreUsuario }, { email: normalizedEmail }]
     });
 
     if (usuarioExistente) {
         const error = new Error("El nombre de usuario o el correo electrónico ya están en uso");
-        error.status = 400;
+        error.status = 409;
         throw error;
     }
 
@@ -25,7 +51,7 @@ export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena
 
     const nuevoUsuario = new Usuario({
         nombreUsuario,
-        email,
+        email: normalizedEmail,
         contrasena: contrasenaHasheada,
         rol
     });
@@ -34,8 +60,8 @@ export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena
     return nuevoUsuario;
 };
 
-export const loginUsuarioService = async (email, password) => {
-    const usuario = await Usuario.findOne({ email: email.toLowerCase() });
+export const loginUsuarioService = async (email, password, token) => {
+    const usuario = await Usuario.findOne({ email: email.trim().toLowerCase() });
 
     if (!usuario) {
         const error = new Error("Email o contraseña incorrectos");
@@ -51,13 +77,21 @@ export const loginUsuarioService = async (email, password) => {
         throw error;
     }
 
-    const token = jwt.sign(
-        { userId: usuario._id, nombreUsuario: usuario.nombreUsuario, rol: usuario.rol },
-        process.env.SECRET_KEY,
-        { expiresIn: "1h" }
-    );
+    if (usuario.twoFactorEnabled && !token) {
+        return { requiere2FA: true };
+    }
+
+    if (usuario.twoFactorEnabled) {
+        await verifyTwoFactorService(usuario._id, token);
+    }
+
+    const sessionToken = usuario.twoFactorEnabled
+        ? createAccessToken(usuario)
+        : createSetupToken(usuario);
+    
     return {
-        token,
+        token: sessionToken,
+        requiere2FA: false,
         userId: usuario._id,
         nombreUsuario: usuario.nombreUsuario,
         email: usuario.email,
@@ -123,6 +157,7 @@ export const enableTwoFactorService = async (userId, token) => {
 
     usuario.twoFactorEnabled = true; //si el resultado es positivo, lo marcamos como true 
     await usuario.save();
+    return createAccessToken(usuario); 
 };
 
 export const verifyTwoFactorService = async (userId, token) => {

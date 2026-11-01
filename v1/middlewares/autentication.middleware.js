@@ -13,3 +13,23 @@ export const autenticateToken = (req, res, next) => {
         next();
     })
 }
+
+export const requireAccessToken = (req, res, next) => {
+    if (req.user?.purpose !== "access") {
+        return res.status(403).json({
+            message: "No tenés permisos para acceder a esta funcionalidad"
+        });
+    }
+
+    next();
+};
+
+export const requireSetupToken = (req, res, next) => {
+    if (req.user?.purpose !== "two_factor_setup") {
+        return res.status(403).json({
+            message: "Token no válido para configurar el doble factor"
+        });
+    }
+
+    next();
+};

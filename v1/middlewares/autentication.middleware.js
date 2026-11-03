@@ -8,8 +8,27 @@ export const autenticateToken = (req, res, next) => {
     if(!token) return res.status(401).json({message: "Token no proporcionado"});//sino esta error
 
     jwt.verify(token, process.env.SECRET_KEY, (err, user) =>{//VERIFICO EL TOKEN, SI ESTA BIEN GENIAL
-        if(err) return res.status(403).json({message: "Token invalido"})      
+        if(err) return res.status(401).json({message: "Token inválido o vencido"})      
         req.user = user;
         next();
     })
 }
+
+export const requireAccessToken = (req, res, next) => {
+    if (req.user?.purpose !== "access") {
+        return res.status(403).json({
+            message: "No tenés permisos para acceder a esta funcionalidad"
+        });
+    }
+
+    next();
+};
+
+export const requireSetupToken = (req, res, next) => {
+    if (req.user?.purpose !== "two_factor_setup") {
+        return res.status(403).json({
+            message: "Token no válido para configurar el doble factor"
+        });
+    }
+    next();
+};

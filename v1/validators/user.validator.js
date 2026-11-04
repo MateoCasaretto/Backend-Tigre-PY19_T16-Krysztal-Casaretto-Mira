@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { warehouseIdsSchema } from "./warehouse.validator.js";
 
 export const registroSchema = Joi.object({
     nombreUsuario: Joi.string()
@@ -48,7 +49,14 @@ export const registroSchema = Joi.object({
         .default("Operario")
         .messages({
             "any.only": "El rol solo puede ser Administrador u Operario"
-        })
+        }),
+
+    // Los operarios se asignan a una o más plantas; los administradores ven todas
+    warehouses: Joi.when("rol", {
+        is: "Administrador",
+        then: Joi.forbidden().messages({ "any.unknown": "A los administradores no se les asignan plantas" }),
+        otherwise: warehouseIdsSchema.required()
+    })
 });
 
 export const loginSchema = Joi.object({

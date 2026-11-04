@@ -2,9 +2,8 @@ import Product from "../models/product.model.js";
 import { assignBarcodeSchema } from "../validators/product.validator.js";
 import { BARCODE_SOURCES } from "../utils/enums.utils.js";
 import { createError } from "../utils/error.utils.js";
+import { escapeRegex } from "../utils/regex.utils.js";
 import { validateWith } from "../utils/validation.utils.js";
-
-const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const describe = (product) => `${product.sapCode} - ${product.description}`;
 

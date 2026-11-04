@@ -24,6 +24,11 @@ const usuarioSchema = new mongoose.Schema({
         enum: ["Administrador", "Operario"],
         default: "Operario"
     },
+    // Plantas asignadas por un administrador. Solo aplica a operarios: los administradores ven todas
+    warehouses: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Warehouse"
+    }],
     twoFactorSecret: { //esto es el secret entre el servidor y la app de autenticación (esto se genera en el endpoint "/2fa/setup")
         type: String,
         select: false

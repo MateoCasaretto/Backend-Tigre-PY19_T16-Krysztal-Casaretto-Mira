@@ -10,7 +10,8 @@ export const registrarUsuario = async (req, res, next) => {
         _id: usuario._id,
         nombreUsuario: usuario.nombreUsuario,
         email: usuario.email,
-        rol: usuario.rol
+        rol: usuario.rol,
+        warehouses: usuario.warehouses
       }
     });
 

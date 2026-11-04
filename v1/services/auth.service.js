@@ -3,6 +3,7 @@ import Usuario from "../models/usuario.model.js";
 import jwt from "jsonwebtoken";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
+import { assertWarehousesExist } from "./warehouse.service.js";
 
 export const createSetupToken = (user) => {
     return jwt.sign(
@@ -28,7 +29,7 @@ export const createAccessToken = (user) => {
     );
 };
 
-export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena, repetirContrasena, rol }) => {
+export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena, repetirContrasena, rol, warehouses }) => {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (contrasena !== repetirContrasena) {
@@ -47,13 +48,16 @@ export const registrarUsuarioService = async ({ nombreUsuario, email, contrasena
         throw error;
     }
 
+    if (warehouses) await assertWarehousesExist(warehouses);
+
     const contrasenaHasheada = await bcrypt.hash(contrasena, 10);
 
     const nuevoUsuario = new Usuario({
         nombreUsuario,
         email: normalizedEmail,
         contrasena: contrasenaHasheada,
-        rol
+        rol,
+        warehouses
     });
 
     await nuevoUsuario.save();

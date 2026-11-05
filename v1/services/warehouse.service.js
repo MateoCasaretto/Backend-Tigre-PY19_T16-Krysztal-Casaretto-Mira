@@ -4,6 +4,8 @@ import { ROLES } from "../utils/enums.utils.js";
 import { createError } from "../utils/error.utils.js";
 
 const DUPLICATE_MESSAGE = "Ya existe una planta con ese nombre";
+// La estructura del mapa se pide aparte (CU15): puede ser pesada y las pantallas de plantas no la usan
+const WITHOUT_STRUCTURE = "-elements";
 
 const assignedWarehouseIds = async (userId) => {
     const user = await Usuario.findById(userId).select("warehouses");
@@ -13,12 +15,12 @@ const assignedWarehouseIds = async (userId) => {
 // Los administradores ven todas las plantas; los operarios, solo las asignadas
 export const listWarehouses = async ({ userId, rol }) => {
     const filter = rol === ROLES.ADMINISTRATIVE ? {} : { _id: { $in: await assignedWarehouseIds(userId) } };
-    return Warehouse.find(filter).sort({ name: 1 }).collation({ locale: "es" });
+    return Warehouse.find(filter).select(WITHOUT_STRUCTURE).sort({ name: 1 }).collation({ locale: "es" });
 };
 
 // CU17 paso 3. RN14: un operario no accede a una planta que no tiene asignada
 export const getWarehouse = async (id, { userId, rol }) => {
-    const warehouse = await Warehouse.findById(id);
+    const warehouse = await Warehouse.findById(id).select(WITHOUT_STRUCTURE);
     if (!warehouse) throw createError(404, "Planta no encontrada");
 
     if (rol !== ROLES.ADMINISTRATIVE) {
@@ -41,7 +43,7 @@ export const createWarehouse = async (data) => {
 
 export const updateWarehouse = async (id, data) => {
     try {
-        const warehouse = await Warehouse.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+        const warehouse = await Warehouse.findByIdAndUpdate(id, data, { new: true, runValidators: true }).select(WITHOUT_STRUCTURE);
         if (!warehouse) throw createError(404, "Planta no encontrada");
         return warehouse;
     } catch (error) {

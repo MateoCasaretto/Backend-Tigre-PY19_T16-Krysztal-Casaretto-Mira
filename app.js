@@ -13,7 +13,7 @@ const app = express()
 
 app.use(cors({ origin: 'http://localhost:5173' }))  
 
-app.use(express.json())
+app.use(express.json({ limit: '1mb' })) // Una estantería con todas sus posiciones puede superar los 100 KB por defecto
 
 app.use('/v1', v1Router)
 

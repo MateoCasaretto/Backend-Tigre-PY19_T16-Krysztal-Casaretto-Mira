@@ -4477,7 +4477,1943 @@
       ]
     },
     {
-      "name": "08 - Riesgos conocidos",
+      "name": "08 - Estructura de planta (CU15)",
+      "item": [
+        {
+          "name": "POST Crear estantería con disposición uniforme",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { data: rack } = pm.response.json();",
+                  "pm.test('Genera niveles, tramos y columnas', () => {",
+                  "    pm.expect(rack.levels).to.have.length(5);",
+                  "    pm.expect(rack.bays.map((bay) => bay.columns.map((column) => column.label))).to.eql([['1', '2'], ['3', '4'], ['5']]);",
+                  "    pm.expect(rack.levels[0].label).to.eql('N1');",
+                  "    pm.expect(rack.levels[1].positions.map((position) => position.label)).to.eql(['2-1', '2-2', '2-3', '2-4', '2-5']);",
+                  "    pm.expect(rack.levels[0].positions.every((position) => position.active && position.fixedProduct === null)).to.eql(true);",
+                  "});",
+                  "pm.collectionVariables.set('rackId', rack._id);",
+                  "const toPayload = ({ name, x, y, sizeX, sizeY, bays, levels }) => ({",
+                  "    name, x, y, sizeX, sizeY, bays,",
+                  "    levels: levels.map((level) => ({",
+                  "        ...level,",
+                  "        positions: level.positions.map((position) => ({ ...position, fixedProduct: position.fixedProduct?._id ?? position.fixedProduct })),",
+                  "    })),",
+                  "});",
+                  "pm.collectionVariables.set('rack', JSON.stringify(toPayload(rack)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 0,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear zona de piso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { data: zone } = pm.response.json();",
+                  "pm.test('Sin niveles ni tramos', () => {",
+                  "    pm.expect(zone.type).to.eql('floorZone');",
+                  "    pm.expect(zone.levels).to.eql(undefined);",
+                  "});",
+                  "pm.collectionVariables.set('floorZoneId', zone._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"floorZone\",\n  \"name\": \"Zona {{sufijo}}\",\n  \"description\": \"Mesas del frente\",\n  \"x\": 10,\n  \"y\": 0,\n  \"sizeX\": 4,\n  \"sizeY\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - nombre repetido con otras mayúsculas (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Ya existe un elemento\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"RACK {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - se superpone con otro (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"se superponen\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Otro {{sufijo}}\",\n  \"x\": 1,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - sin nombre (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Falta el nombre\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - sin niveles (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"niveles\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": null,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - cero columnas (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"columnas\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - columnas por tramo con decimales (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"columnas por tramo\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5,\n  \"columnsPerBay\": 1.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - posición negativa (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"negativa\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": -1,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - fuera de la grilla de 0,5 m (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"0,5 metros\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 0.3,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - tamaño cero (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"tamaño mínimo\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 0,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - tipo inexistente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"tipo\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"mesa\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - planta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Planta no encontrada\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/000000000000000000000000/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 0,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear - perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Crear - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Rack {{sufijo}}\",\n  \"x\": 50,\n  \"y\": 0,\n  \"sizeX\": 2,\n  \"sizeY\": 12,\n  \"levelCount\": 5,\n  \"columnCount\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET Listar estructura - Administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: elements } = pm.response.json();",
+                  "pm.test('Trae la estantería y la zona', () => {",
+                  "    const ids = elements.map((element) => element._id);",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('rackId'));",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('floorZoneId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements"
+          }
+        },
+        {
+          "name": "GET Listar estructura - Operario, planta asignada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Listar estructura - Operario, planta no asignada (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{otherWarehouseId}}/elements",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Listar estructura - planta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/000000000000000000000000/elements"
+          }
+        },
+        {
+          "name": "GET Listar estructura - id mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/abc/elements"
+          }
+        },
+        {
+          "name": "GET Listar estructura - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET Obtener planta - no trae la estructura",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sin elements', () => pm.expect(pm.response.json().data.elements).to.eql(undefined));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}"
+          }
+        },
+        {
+          "name": "PUT Editar estantería - nombres, columnas, posiciones, puente y producto fijo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: rack } = pm.response.json();",
+                  "const before = JSON.parse(pm.variables.get('rackBody'));",
+                  "pm.test('Conserva los ids de lo que ya existía', () => {",
+                  "    pm.expect(rack.levels[0].positions[0]._id).to.eql(before.levels[0].positions[0]._id);",
+                  "    pm.expect(rack.bays[0]._id).to.eql(before.bays[0]._id);",
+                  "});",
+                  "pm.test('Guarda los cambios', () => {",
+                  "    pm.expect(rack.name).to.eql('Estante obsoletos {{sufijo}}'.replace('{{sufijo}}', pm.collectionVariables.get('sufijo')));",
+                  "    pm.expect(rack.levels[0].label).to.eql('Piso');",
+                  "    pm.expect(rack.levels[0].positions[2].active).to.eql(false);",
+                  "    pm.expect(rack.bays[0].columns.map((column) => column.label)).to.eql(['1', '2', '20']);",
+                  "    pm.expect(rack.levels[1].positions).to.have.length(6);",
+                  "});",
+                  "pm.test('Devuelve el producto fijo con sus datos', () => {",
+                  "    const { fixedProduct } = rack.levels[0].positions[0];",
+                  "    pm.expect(fixedProduct._id).to.eql(pm.collectionVariables.get('productId'));",
+                  "    pm.expect(fixedProduct.sapCode).to.be.a('string');",
+                  "});",
+                  "const toPayload = ({ name, x, y, sizeX, sizeY, bays, levels }) => ({",
+                  "    name, x, y, sizeX, sizeY, bays,",
+                  "    levels: levels.map((level) => ({",
+                  "        ...level,",
+                  "        positions: level.positions.map((position) => ({ ...position, fixedProduct: position.fixedProduct?._id ?? position.fixedProduct })),",
+                  "    })),",
+                  "});",
+                  "pm.collectionVariables.set('rack', JSON.stringify(toPayload(rack)));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.name = `Estante obsoletos ${pm.collectionVariables.get('sufijo')}`;",
+                  "rack.levels[0].label = 'Piso';",
+                  "rack.levels[0].positions[0].label = 'Caja 1';",
+                  "rack.levels[0].positions[0].fixedProduct = pm.collectionVariables.get('productId');",
+                  "rack.levels[0].positions[2].active = false;",
+                  "rack.bays[0].columns.push({ label: '20' });",
+                  "rack.levels[1].positions.push({ bayId: rack.bays[1]._id, label: '2-6' });",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - columna repetida (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"columna\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.bays[0].columns[1].label = rack.bays[0].columns[0].label;",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - nivel repetido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"nivel\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[1].label = rack.levels[0].label.toUpperCase();",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - posición repetida (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"posición\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[1].positions[0].label = rack.levels[0].positions[0].label;",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - tramo sin posiciones (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"tramo sin posiciones\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[0].positions = rack.levels[0].positions.filter((position) => position.bayId !== rack.bays[2]._id);",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - posición en un tramo inexistente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"tramo que no existe\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[0].positions[0].bayId = '000000000000000000000000';",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - desactivada con producto fijo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"desactivada\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[0].positions[0].active = false;",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - producto fijo inexistente (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"productos fijos\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels[0].positions[1].fixedProduct = '000000000000000000000000';",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - sin niveles (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"al menos un nivel\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.levels = [];",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - nombre de otro elemento (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Ya existe un elemento\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.name = `Zona ${pm.collectionVariables.get('sufijo')}`;",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - se superpone con otro (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"se superponen\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "rack.x = 9;",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - elemento inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Elemento no encontrado\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/000000000000000000000000",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT Editar estantería - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rack = JSON.parse(pm.collectionVariables.get('rack'));",
+                  "pm.variables.set('rackBody', JSON.stringify(rack));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{{rackBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PUT Editar zona de piso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Guarda el tamaño', () => pm.expect(pm.response.json().data.sizeX).to.eql(5));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{floorZoneId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zona {{sufijo}}\",\n  \"description\": \"Despacho\",\n  \"x\": 10,\n  \"y\": 0,\n  \"sizeX\": 5,\n  \"sizeY\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: elements } = pm.response.json();",
+                  "const rack = elements.find((element) => element._id === pm.collectionVariables.get('rackId'));",
+                  "pm.test('Mueve el elemento y conserva su estructura', () => {",
+                  "    pm.expect(rack.x).to.eql(3);",
+                  "    pm.expect(rack.y).to.eql(1);",
+                  "    pm.expect(rack.levels).to.have.length(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    {\n      \"_id\": \"{{rackId}}\",\n      \"x\": 3,\n      \"y\": 1,\n      \"sizeX\": 2,\n      \"sizeY\": 12\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - se superponen (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"se superponen\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    {\n      \"_id\": \"{{rackId}}\",\n      \"x\": 9,\n      \"y\": 1,\n      \"sizeX\": 2,\n      \"sizeY\": 12\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - elemento inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"Elemento no encontrado\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    {\n      \"_id\": \"000000000000000000000000\",\n      \"x\": 0,\n      \"y\": 0,\n      \"sizeX\": 1,\n      \"sizeY\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - solo el tamaño elegido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planWidth\": 60,\n  \"planHeight\": 40.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET Obtener planta - trae el tamaño del plano",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { data: warehouse } = pm.response.json();",
+                  "pm.test('Tamaño guardado', () => {",
+                  "    pm.expect(warehouse.planWidth).to.eql(60);",
+                  "    pm.expect(warehouse.planHeight).to.eql(40.5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}"
+          }
+        },
+        {
+          "name": "PUT Guardar plano - sin ningún cambio (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - tamaño cero (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planWidth\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - tamaño fuera de la grilla (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planHeight\": 20.3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - tamaño con perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planWidth\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - sin cambios (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - elemento repetido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.include(\"repetido\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    {\n      \"_id\": \"{{rackId}}\",\n      \"x\": 3,\n      \"y\": 1,\n      \"sizeX\": 2,\n      \"sizeY\": 12\n    },\n    {\n      \"_id\": \"{{rackId}}\",\n      \"x\": 3,\n      \"y\": 1,\n      \"sizeX\": 2,\n      \"sizeY\": 12\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT Guardar plano - perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/layout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"elements\": [\n    {\n      \"_id\": \"{{rackId}}\",\n      \"x\": 3,\n      \"y\": 1,\n      \"sizeX\": 2,\n      \"sizeY\": 12\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE Borrar - perfil operativo (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE Borrar - inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/000000000000000000000000"
+          }
+        },
+        {
+          "name": "DELETE Borrar estantería",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{rackId}}"
+          }
+        },
+        {
+          "name": "DELETE Borrar zona de piso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{floorZoneId}}"
+          }
+        },
+        {
+          "name": "GET Listar estructura - ya no están",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sin elementos', () => pm.expect(pm.response.json().data).to.have.length(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Riesgos conocidos",
       "description": "Lo que la API debería cumplir según la decisión del equipo y las buenas prácticas.\n\n**Este test FALLA a propósito** hasta que se corrija el backend:\n1. Credenciales incorrectas en el login deberían ser 401 (hoy es 400).",
       "item": [
         {
@@ -4678,6 +6614,18 @@
       "key": "wrongCheckBarcode",
       "value": "",
       "description": "Se completa en 07 - Códigos de barras"
+    },
+    {
+      "key": "rackId",
+      "value": ""
+    },
+    {
+      "key": "floorZoneId",
+      "value": ""
+    },
+    {
+      "key": "rack",
+      "value": ""
     }
   ],
   "event": [

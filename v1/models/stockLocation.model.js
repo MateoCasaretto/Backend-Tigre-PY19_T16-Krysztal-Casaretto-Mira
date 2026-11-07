@@ -42,4 +42,7 @@ stockLocationSchema.index(
     { unique: true }
 );
 
+// CU08: stock de una estantería o zona de piso
+stockLocationSchema.index({ warehouse: 1, elementId: 1 });
+
 export default mongoose.model("StockLocation", stockLocationSchema);

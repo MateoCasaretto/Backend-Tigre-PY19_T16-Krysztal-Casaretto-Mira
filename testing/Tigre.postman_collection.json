@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Tigre - API Proyecto Integrador",
-    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y plantas y productos con prefijo POSTMAN-.\n\n**Plug and play**: no necesita environment. Inicia sesión con el Administrador de prueba `postman_admin@test.com`, que existe solo en tigre_dev y tiene el 2FA activo (su secret está en las variables de la colección), y si no puede (por ejemplo, contra producción) corta la corrida sin crear nada.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json`\n\nLa carpeta **08 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
+    "description": "API del sistema de gestión de depósito de Tigre Uruguay (grupo PY19_T16, ORT).\n\nCorrer solo contra el back local o el de develop (base tigre_dev): crea usuarios de prueba con prefijo test_ y plantas y productos con prefijo POSTMAN-.\n\n**Plug and play**: no necesita environment. Inicia sesión con el Administrador de prueba `postman_admin@test.com`, que existe solo en tigre_dev y tiene el 2FA activo (su secret está en las variables de la colección), y si no puede (por ejemplo, contra producción) corta la corrida sin crear nada.\n\nCon newman, desde la raíz del repo:\n`npx newman run testing/Tigre.postman_collection.json`\n\nLa carpeta **10 - Riesgos conocidos** falla a propósito: documenta lo que falta corregir.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -6413,7 +6413,451 @@
       ]
     },
     {
-      "name": "09 - Riesgos conocidos",
+      "name": "09 - Ocupación y contenido de ubicaciones (CU03 y CU08)",
+      "item": [
+        {
+          "name": "POST Crear estantería para ocupación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { data: rack } = pm.response.json();",
+                  "pm.collectionVariables.set('occupancyRackId', rack._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"rack\",\n  \"name\": \"Ocupación {{sufijo}}\",\n  \"x\": 0,\n  \"y\": 20,\n  \"sizeX\": 2,\n  \"sizeY\": 6,\n  \"levelCount\": 3,\n  \"columnCount\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST Crear zona de piso para ocupación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const { data: zone } = pm.response.json();",
+                  "pm.collectionVariables.set('occupancyZoneId', zone._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"floorZone\",\n  \"name\": \"Zona ocupación {{sufijo}}\",\n  \"x\": 10,\n  \"y\": 20,\n  \"sizeX\": 4,\n  \"sizeY\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET Ocupación de la planta - Administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { message, data: occupancy } = pm.response.json();",
+                  "pm.test('Responde message y data', () => {",
+                  "    pm.expect(message).to.be.a('string');",
+                  "    pm.expect(occupancy).to.be.an('array');",
+                  "});",
+                  "const rack = occupancy.find((item) => item.elementId === pm.collectionVariables.get('occupancyRackId'));",
+                  "const zone = occupancy.find((item) => item.elementId === pm.collectionVariables.get('occupancyZoneId'));",
+                  "pm.test('Estantería sin stock: 0 de 12 posiciones (A1)', () => {",
+                  "    pm.expect(rack).to.include({ occupiedPositions: 0, totalPositions: 12, productCount: 0 });",
+                  "});",
+                  "pm.test('Zona de piso: sin posiciones, solo productos', () => {",
+                  "    pm.expect(zone).to.include({ occupiedPositions: null, totalPositions: null, productCount: 0 });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/occupancy"
+          }
+        },
+        {
+          "name": "GET Ocupación de la planta - Operario, planta asignada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/occupancy",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Ocupación - Operario, planta no asignada (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{otherWarehouseId}}/occupancy",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Ocupación - planta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/000000000000000000000000/occupancy"
+          }
+        },
+        {
+          "name": "GET Ocupación - id mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/abc/occupancy"
+          }
+        },
+        {
+          "name": "GET Ocupación - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/occupancy",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET Contenido de la estantería - Administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const { message, data: stock } = pm.response.json();",
+                  "pm.test('Sin stock: lista vacía (CU08 A1)', () => {",
+                  "    pm.expect(message).to.be.a('string');",
+                  "    pm.expect(stock).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{occupancyRackId}}/stock"
+          }
+        },
+        {
+          "name": "GET Contenido de la zona de piso - Operario, planta asignada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Lista vacía', () => pm.expect(pm.response.json().data).to.eql([]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{occupancyZoneId}}/stock",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Contenido - Operario, planta no asignada (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{otherWarehouseId}}/elements/{{occupancyRackId}}/stock",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Contenido - planta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/000000000000000000000000/elements/{{occupancyRackId}}/stock"
+          }
+        },
+        {
+          "name": "GET Contenido - elemento inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/000000000000000000000000/stock"
+          }
+        },
+        {
+          "name": "GET Contenido - elemento de otra planta (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{otherWarehouseId}}/elements/{{occupancyRackId}}/stock"
+          }
+        },
+        {
+          "name": "GET Contenido - id de elemento mal formado (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/abc/stock"
+          }
+        },
+        {
+          "name": "GET Contenido - sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{occupancyRackId}}/stock",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "DELETE Borrar estantería de ocupación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{occupancyRackId}}"
+          }
+        },
+        {
+          "name": "DELETE Borrar zona de piso de ocupación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/warehouses/{{warehouseId}}/elements/{{occupancyZoneId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Riesgos conocidos",
       "description": "Lo que la API debería cumplir según la decisión del equipo y las buenas prácticas.\n\n**Este test FALLA a propósito** hasta que se corrija el backend:\n1. Credenciales incorrectas en el login deberían ser 401 (hoy es 400).",
       "item": [
         {
@@ -6625,6 +7069,14 @@
     },
     {
       "key": "rack",
+      "value": ""
+    },
+    {
+      "key": "occupancyRackId",
+      "value": ""
+    },
+    {
+      "key": "occupancyZoneId",
       "value": ""
     }
   ],

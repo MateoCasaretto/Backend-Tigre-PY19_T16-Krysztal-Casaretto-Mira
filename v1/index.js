@@ -5,6 +5,7 @@ import catalogImportRouter from "./routers/catalogImport.routes.js";
 import productRouter from "./routers/product.routes.js";
 import warehouseRouter from "./routers/warehouse.routes.js";
 import userAdminRouter from "./routers/userAdmin.routes.js";
+import cycleCountRouter from "./routers/cycleCount.routes.js";
 import { autenticateToken, requireAccessToken } from "./middlewares/autentication.middleware.js";
 
 const router = express.Router({ mergeParams: true });
@@ -18,5 +19,6 @@ router.use("/catalog/imports", catalogImportRouter);
 router.use("/products", productRouter);
 router.use("/warehouses", warehouseRouter);
 router.use("/users", userAdminRouter);
+router.use("/cycle-counts", cycleCountRouter);
 
 export default router;

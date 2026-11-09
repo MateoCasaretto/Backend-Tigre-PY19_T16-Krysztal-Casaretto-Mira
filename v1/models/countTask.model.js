@@ -33,6 +33,12 @@ const countItemSchema = new mongoose.Schema({
             validator: (value) => value === null || Number.isInteger(value),
             message: "La cantidad debe ser un número entero"
         }
+    }, 
+
+    observation: {
+        type: String,
+        trim: true,
+        default: null
     }
 
 }, { _id: false });

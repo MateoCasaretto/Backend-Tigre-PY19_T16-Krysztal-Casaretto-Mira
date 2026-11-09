@@ -23,13 +23,27 @@ export const createCycleCountSchema = Joi.object({
     group2Operators: operatorsSchema
 });
 
-export const submitCountTaskSchema = Joi.object({
-    countedItems: Joi.array().items(
-        Joi.object({
-            product: objectIdSchema,
-            elementId: objectIdSchema,
-            positionId: Joi.string().hex().length(24).allow(null).required(),
-            countedQuantity: Joi.number().integer().min(0).required()
-        })
-    )
+export const saveCountItemSchema = Joi.object({
+    product: objectIdSchema,
+    elementId: objectIdSchema,
+    positionId: Joi.string().hex().length(24).allow(null).required(),
+    countedQuantity: Joi.number().integer().min(0).required()
+});
+
+export const createThirdCountSchema = Joi.object({
+    group3Operators: operatorsSchema
+});
+
+export const justifyStockDifferenceSchema = Joi.object({
+    product: objectIdSchema,
+    elementId: objectIdSchema,
+    positionId: Joi.string().hex().length(24).allow(null).required(),
+    justification: Joi.string().trim().min(1).required()
+});
+
+export const saveCountObservationSchema = Joi.object({
+    product: objectIdSchema,
+    elementId: objectIdSchema,
+    positionId: Joi.string().hex().length(24).allow(null).required(),
+    observation: Joi.string().trim().min(1).required()
 });

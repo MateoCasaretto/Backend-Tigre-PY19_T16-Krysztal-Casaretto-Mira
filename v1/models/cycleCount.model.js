@@ -33,6 +33,24 @@ const expectedStockSchema = new mongoose.Schema({
             validator: Number.isInteger,
             message: "La cantidad debe ser un número entero"
         }
+    },
+
+    
+    justification: {
+        type: String,
+        trim: true,
+        default: null
+    },
+
+    justifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+    },
+
+    justifiedAt: {
+        type: Date,
+        default: null
     }
 
 }, { _id: false });
@@ -66,6 +84,18 @@ const cycleCountSchema = new mongoose.Schema({
         type: String,
         enum: ["pending", "in_progress", "third_count", "review", "closed"],
         default: "pending"
+    }, 
+
+    
+    closedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+    },
+
+    closedAt: {
+        type: Date,
+        default: null
     }
 
 }, { timestamps: true });

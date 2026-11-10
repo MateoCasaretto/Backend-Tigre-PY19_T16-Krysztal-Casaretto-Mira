@@ -111,7 +111,7 @@ export const createCycleCount = async (data, createdBy) => {
             products,
             expectedStock,
             createdBy
-        }], { session });
+        }], { session, ordered: true });
 
         const tasks = await CountTask.create([
             {
@@ -126,7 +126,7 @@ export const createCycleCount = async (data, createdBy) => {
                 assignedOperators: group2Operators,
                 countedItems: countedItems   
             }
-        ], { session });
+        ], { session, ordered: true });
 
         return { cycleCount, tasks };
     });
